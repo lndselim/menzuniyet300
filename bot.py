@@ -1,37 +1,31 @@
 # bot.py
+import os
+import json
+import sys
 import discord
 from discord.ext import commands
-from discord.ui import View, Button, Select
-import json
+from discord.ui import View
+from config import TOKEN, PREFIX  # config.py'den al
 
-from confing import PREFIX
+# Basit çalışma dizini / dosya kontrolü — hata ayıklama için
+print("Çalışma dizini:", os.getcwd())
+print("Klasördeki dosyalar:", os.listdir())
 
-# Botu başlat
+# Kariyer verisini yükle
+try:
+    with open("kariyer.json", "r", encoding="utf-8") as f:
+        career_data = json.load(f)
+    print("kariyer.json başarıyla yüklendi. Kategoriler:", list(career_data.keys()))
+except Exception as e:
+    print("HATA: kariyer.json yüklenemedi:", repr(e))
+    sys.exit(1)
+
+# Bot başlatma
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
-# Örnek veri tabanı (JSON formatında saklanecak)
-with open("kariyer.json", "r", encoding="utf-8") as f:
-    career_data = json.load(f)
-
-    
-# basit örnek bot
-@bot.command()
-async def kariyer(ctx):
-    view = CareerView()
-    await ctx.send("Kariyerini keşfetmek için bir kategori seç! ", view=view)
-
-
-# Butonlar ve menüler
-class CareerView(View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-        # Kategoriler
-        self.add_item(CareerSelect())
-
-
+# ---- Select Menüsü ----
 class CareerSelect(discord.ui.Select):
     def __init__(self):
         options = [
@@ -40,7 +34,7 @@ class CareerSelect(discord.ui.Select):
             discord.SelectOption(label="İş Dünyası", description="Girişimcilik, finans, yönetim"),
             discord.SelectOption(label="Eğitim", description="Öğretmenlik, rehberlik, danışmanlık"),
         ]
-        super().__init__(placeholder="Bir kategori seç ", options=options)
+        super().__init__(placeholder="Bir kategori seç...", options=options, min_values=1, max_values=1)
 
     async def callback(self, interaction: discord.Interaction):
         secim = self.values[0]
@@ -52,3 +46,25 @@ class CareerSelect(discord.ui.Select):
         else:
             msg = f"Şu an için {secim} kategorisinde öneri yok."
         await interaction.response.send_message(msg, ephemeral=True)
+
+
+# ---- View ----
+class CareerView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(CareerSelect())
+
+# ---- Komutlar ----
+@bot.command()
+async def kariyer(ctx):
+    """Kariyer seçim menüsünü açar."""
+    view = CareerView()
+    await ctx.send("Kariyerini keşfetmek için bir kategori seç!", view=view)
+
+@bot.command()
+async def jsonkontrol(ctx):
+    """Bot içinden JSON anahtarlarını gösterir (debug)."""
+    await ctx.send(f"Kategoriler: {', '.join(career_data.keys())}")
+
+# Botu çalıştır
+bot.run(TOKEN)
